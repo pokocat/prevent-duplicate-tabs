@@ -1,327 +1,245 @@
-/*
- * Prevent Duplicate Tabs
- * Copyright (c) 2023 Guilherme Nascimento (brcontainer@yahoo.com.br)
+/* Prevent Duplicate Tabs – MV3 Service Worker
+ * https://github.com/brcontainer/prevent-duplicate-tabs
+ * Copyright (c) 2025 Guilherme Nascimento
  * Released under the MIT license
  *
- * https://github.com/brcontainer/prevent-duplicate-tabs
+ * Major Changes:
+ * - Remove window dependency
+ * - Use chrome.* API
+ * - Fully utilize chrome.storage.local
  */
 
-(function (w, u) {
-    "use strict";
+'use strict';
 
-    if (typeof browser === "undefined") {
-        w.browser = chrome;
-    } else if (!w.browser) {
-        w.browser = browser;
-    }
+/* ---------- Utils ---------- */
+const storage = chrome.storage.local;
 
-    var ignoreds,
-        timeout,
-        isHttpRE = /^https?:\/\/\w/i,
-        isNewTabRE = /^(about:blank|chrome:\/+?(newtab|startpageshared)\/?)$/i,
-        removeHashRE = /#[\s\S]+?$/,
-        removeQueryRE = /\?[\s\S]+?$/,
-        browser = w.browser,
-        configs = {
-            "turnoff": false,
-            "old": true,
-            "active": true,
-            "start": true,
-            "replace": true,
-            "update": true,
-            "create": true,
-            "attach": true,
-            "datachange": true,
-            "http": true,
-            "query": true,
-            "hash": false,
-            "incognito": false,
-            "windows": true,
-            "containers": true
-        };
+// Promise-based read/write
+const getStorage = async (key, fallback) => {
+  const res = await storage.get(key);
+  return res[key] !== undefined ? res[key] : fallback;
+};
+const setStorage = (key, value) => storage.set({ [key]: value });
 
+/* ---------- Default Configurations ---------- */
+const DEFAULT_CONFIGS = {
+  turnoff: false,
+  old: true,
+  active: true,
+  start: true,
+  replace: true,
+  update: true,
+  create: true,
+  attach: true,
+  datachange: true,
+  http: true,
+  query: true,
+  hash: false,
+  incognito: false,
+  windows: true,
+  containers: true
+};
 
-    var legacyConfigs = Object.keys(configs);
+const LEGACY_CONFIG_KEYS = Object.keys(DEFAULT_CONFIGS);
 
-    function checkTabs(type) {
-        if (configs[type]) {
-            browser.tabs.query(configs.windows ? { "lastFocusedWindow": true } : {}, preGetTabs);
-        }
-    }
+/* ---------- Regular Expressions & Variables ---------- */
+const isHttpRE     = /^https?:\/\/\w/i;
+const isNewTabRE   = /^(about:blank|chrome:\/+?(newtab|startpageshared)\/?)$/i;
+const removeHashRE = /#[\s\S]+?$/;
+const removeQueryRE = /\?[\s\S]+?$/;
 
-    function preGetTabs(tabs) {
-        if (timeout) clearTimeout(timeout);
+let configs   = { ...DEFAULT_CONFIGS };
+let ignoreds  = { urls: [], hosts: [] };
+let timeoutId = null;
 
-        timeout = setTimeout(getTabs, 50, tabs);
-    }
+/* ---------- Main Process Entry ---------- */
+(async function init() {
+  await loadConfigs();
+  await loadIgnored();
 
-    function isIgnored(url) {
-        return ignoreds && (ignoreds.urls.indexOf(url) !== -1 || ignoreds.hosts.indexOf(new URL(url).host) !== -1);
-    }
+  // Immediate self-check on first launch
+  setTimeout(checkTabs, 100, 'start');
 
-    function isDisabled() {
-        return configs.turnoff || (
-            !configs.start &&
-            !configs.replace &&
-            !configs.update &&
-            !configs.create &&
-            !configs.attach &&
-            !configs.datachange
-        );
-    }
+  /* ------ Event Listeners ------ */
+  chrome.tabs.onAttached.addListener(createEvent('attach', 500));
+  chrome.tabs.onCreated .addListener(createEvent('create', 10));
+  chrome.tabs.onReplaced.addListener(createEvent('replace', 10));
+  chrome.tabs.onUpdated .addListener(createEvent('update', 10));
 
-    function getTabs(tabs) {
-        if (isDisabled()) return;
+  chrome.tabs.onActivated.addListener(({ tabId }) => toggleIgnoreIcon(tabId));
 
-        var tab,
-            url,
-            groupTabs = {},
-            onlyHttp = configs.http,
-            ignoreHash = !configs.hash,
-            ignoreQuery = !configs.query,
-            ignoreIncognitos = !configs.incognito,
-            diffWindows = configs.windows,
-            diffContainers = configs.containers;
+  chrome.runtime.onMessage.addListener(onRuntimeMessage);
+})();
 
-        for (var i = tabs.length - 1; i >= 0; i--) {
-            tab = tabs[i];
-            url = tab.url;
+/* ---------- Core Functions ---------- */
+function createEvent(type, delay) {
+  return tab => {
+    setTimeout(checkTabs, delay, type);
+    setTimeout(toggleIgnoreIcon, 100, tab.id || tab.tabId || tab, tab.url);
+  };
+}
 
-            if (
-                tab.pinned ||
-                url === "" ||
-                isNewTabRE.test(url) ||
-                (ignoreIncognitos && tab.incognito) ||
-                (onlyHttp && !isHttpRE.test(url)) ||
-                isIgnored(url)
-            ) {
-                continue;
-            }
+async function checkTabs(trigger) {
+  if (configs[trigger] === false || isDisabled()) return;
 
-            if (ignoreHash) url = url.replace(removeHashRE, "");
+  const query = configs.windows ? { lastFocusedWindow: true } : {};
+  const tabs  = await chrome.tabs.query(query);
+  groupAndClose(tabs);
+}
 
-            if (ignoreQuery) url = url.replace(removeQueryRE, "");
+function groupAndClose(tabs) {
+  const group = {};
+  const onlyHttp        = configs.http;
+  const ignoreHash      = !configs.hash;
+  const ignoreQuery     = !configs.query;
+  const ignoreIncog     = !configs.incognito;
+  const diffWindows     = configs.windows;
+  const diffContainers  = configs.containers;
 
-            var prefix;
+  for (const tab of tabs) {
+    let url = tab.url || '';
 
-            if (tab.incognito) {
-                prefix = "incognito";
-            } else if (diffContainers && tab.cookieStoreId) {
-                prefix = String(tab.cookieStoreId);
-            } else {
-                prefix = "normal";
-            }
+    if (
+      tab.pinned ||
+      url === '' ||
+      isNewTabRE.test(url) ||
+      (ignoreIncog && tab.incognito) ||
+      (onlyHttp && !isHttpRE.test(url)) ||
+      isIgnored(url)
+    ) continue;
 
-            if (diffWindows) {
-                url = prefix + "::" + tab.windowId + "::" + url;
-            } else {
-                url = prefix + "::" + url;
-            }
+    if (ignoreHash)  url = url.replace(removeHashRE, '');
+    if (ignoreQuery) url = url.replace(removeQueryRE, '');
 
-            if (!groupTabs[url]) groupTabs[url] = [];
+    let prefix;
+    if (tab.incognito)               prefix = 'incognito';
+    else if (diffContainers && tab.cookieStoreId) prefix = String(tab.cookieStoreId);
+    else                              prefix = 'normal';
 
-            groupTabs[url].push({ "id": tab.id, "actived": tab.active });
-        }
+    const key = diffWindows ? `${prefix}::${tab.windowId}::${url}`
+                            : `${prefix}::${url}`;
 
-        for (var url in groupTabs) {
-            closeTabs(groupTabs[url]);
-        }
+    (group[key] ||= []).push({ id: tab.id, active: tab.active });
+  }
 
-        groupTabs = tabs = null;
-    }
+  for (const key in group) closeDuplicates(group[key]);
+}
 
-    function sortTabs(tab, nextTab) {
-        if (configs.active && (tab.actived || nextTab.actived)) {
-            return tab.actived ? -1 : 1;
-        }
+function closeDuplicates(tabs) {
+  if (tabs.length < 2) return;
+  tabs.sort(sortTabs);           // Original logic: active first / old later
+  for (let i = 1; i < tabs.length; i++) {
+    chrome.tabs.remove(tabs[i].id);
+  }
+}
 
-        return configs.old && tab.id < nextTab.id ? 1 : -1;
-    }
+function sortTabs(a, b) {
+  if (configs.active && (a.active || b.active)) return a.active ? -1 : 1;
+  return configs.old && a.id < b.id ? 1 : -1;
+}
 
-    function closeTabs(tabs) {
-        var j = tabs.length;
+function isDisabled() {
+  return configs.turnoff || (
+    !configs.start     &&
+    !configs.replace   &&
+    !configs.update    &&
+    !configs.create    &&
+    !configs.attach    &&
+    !configs.datachange
+  );
+}
 
-        if (j < 2) return;
+/* ---------- Ignore Logic & Icon ---------- */
+function isIgnored(url) {
+  return ignoreds.urls.includes(url) || ignoreds.hosts.includes(new URL(url).host);
+}
 
-        tabs = tabs.sort(sortTabs);
+async function loadIgnored() {
+  ignoreds.urls  = await getStorage('urls',  []);
+  ignoreds.hosts = await getStorage('hosts', []);
+}
 
-        for (var i = 1; i < j; i++) {
-            browser.tabs.remove(tabs[i].id, empty);
-        }
-    }
-
-    function createEvent(type, timeout) {
-        return function (tab) {
-            setTimeout(checkTabs, timeout, type);
-            setTimeout(toggleIgnoreIcon, 100, tab.id || tab.tabId || tab, tab.url);
-        };
-    }
-
-    function getConfigs() {
-        return {
-            "turnoff": getStorage("turnoff", configs.turnoff),
-            "old": getStorage("old", configs.old),
-            "active": getStorage("active", configs.active),
-            "start": getStorage("start", configs.start),
-            "replace": getStorage("replace", configs.replace),
-            "update": getStorage("update", configs.update),
-            "create": getStorage("create", configs.create),
-            "attach": getStorage("attach", configs.attach),
-            "datachange": getStorage("datachange", configs.datachange),
-            "http": getStorage("http", configs.http),
-            "query": getStorage("query", configs.query),
-            "hash": getStorage("hash", configs.hash),
-            "incognito": getStorage("incognito", configs.incognito),
-            "windows": getStorage("windows", configs.windows),
-            "containers": getStorage("containers", configs.containers)
-        };
-    }
-
-    function getExtraData()
-    {
-        var data = [];
-
-        for (var key in localStorage) {
-            if (key.indexOf("data:") === 0) {
-                data.push({
-                    "id": key.substr(5),
-                    "value": getStorage(key)
-                });
-            }
-        }
-
-        return data;
-    }
-
-    function getIgnored() {
-        var hosts = getStorage("hosts"),
-            urls = getStorage("urls");
-
-        return ignoreds = {
-            "urls": Array.isArray(urls) ? urls : [],
-            "hosts": Array.isArray(hosts) ? hosts : []
-        };
-    }
-
-    function toggleIgnoreData(type, ignore, value) {
-        var changed = true,
-            storage = type + "s",
-            contents = getStorage(storage);
-
-        if (!Array.isArray(contents)) contents = [];
-
-        var index = contents.indexOf(value);
-
-        if (ignore && index === -1) {
-            contents.push(value);
-        } else if (!ignore && index !== -1) {
-            contents.splice(index, 1);
-        } else {
-            changed = false;
-        }
-
-        if (changed) {
-            setStorage(storage, contents);
-            ignoreds[storage] = contents;
-        }
-
-        contents = null;
-    }
-
-    function toggleIgnoreIcon(tab, url) {
-        if (!url) {
-            browser.tabs.get(tab, function (tab) {
-                if (tab) {
-                    var url = tab.url || tab.pendingUrl;
-                    setTimeout(toggleIgnoreIcon, url ? 0 : 500, tab.id, url);
-                }
-            });
-        } else {
-            var icon;
-
-            if (isDisabled() || isIgnored(url)) {
-                icon = "/images/disabled.png";
-            } else {
-                icon = "/images/icon.png";
-            }
-
-            browser.browserAction.setIcon({
-                "tabId": tab,
-                "path": icon
-            });
-        }
-    }
-
-    function updateCurrentIcon(tabs) {
-        if (tabs && tabs[0]) toggleIgnoreIcon(tabs[0].id, tabs[0].url);
-    }
-
-    if (!getStorage("firstrun")) {
-        for (var config in configs) {
-            setStorage(config, configs[config]);
-        }
-
-        setStorage("firstrun", true);
-    } else {
-        configs = getConfigs();
-    }
-
-    setTimeout(checkTabs, 100, "start");
-    setTimeout(getIgnored, 200);
-
-    browser.tabs.onAttached.addListener(createEvent("attach", 500));
-    browser.tabs.onCreated.addListener(createEvent("create", 10));
-    browser.tabs.onReplaced.addListener(createEvent("replace", 10));
-    browser.tabs.onUpdated.addListener(createEvent("update", 10));
-
-    browser.tabs.onActivated.addListener(function (tab) {
-        toggleIgnoreIcon(tab.tabId);
+function toggleIgnoreIcon(tabId, url) {
+  if (!url) {
+    chrome.tabs.get(tabId, t => {
+      const u = t?.url || t?.pendingUrl;
+      setTimeout(toggleIgnoreIcon, u ? 0 : 500, tabId, u);
     });
+    return;
+  }
 
-    browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-        if (request.ignore !== u) {
-            toggleIgnoreData(request.type, request.ignore, request.value);
-            toggleIgnoreIcon(request.tabId, request.url);
-        } else if (request.setup) {
-            configs[request.setup] = request.enable;
-            setStorage(request.setup, request.enable);
-            browser.tabs.query({ "active": true, "lastFocusedWindow": true }, updateCurrentIcon);
-        } else if (request.data) {
-            var key = "data:" + request.data;
-            configs[key] = request.value;
-            setStorage(key, request.value);
-        } else if (request.extra) {
-            sendResponse(getExtraData());
-        } else if (request.configs) {
-            sendResponse(getConfigs());
-        } else if (request.ignored) {
-            sendResponse(getIgnored());
-        }
+  const iconPath = isDisabled() || isIgnored(url)
+    ? '/images/disabled.png'
+    : '/images/icon.png';
 
-        if (request.setup || request.ignore !== u) {
-            if (configs.datachange) setTimeout(checkTabs, 10, "datachange");
-        }
-    });
+  chrome.action.setIcon({ tabId, path: iconPath });
+}
 
-    setTimeout(async function () {
-        var store = {};
+function updateCurrentIcon(tabs) {
+  if (tabs?.[0]) toggleIgnoreIcon(tabs[0].id, tabs[0].url);
+}
 
-        for (var i = 0, j = localStorage.length; i < j; i++) {
-            var key = localStorage.key(i);
+/* ---------- Message Processing ---------- */
+async function onRuntimeMessage(request, sender, sendResponse) {
+  if (request.ignore !== undefined) {
+    toggleIgnoreData(request.type, request.ignore, request.value);
+    toggleIgnoreIcon(request.tabId, request.url);
+  } else if (request.setup) {
+    configs[request.setup] = request.enable;
+    await setStorage(request.setup, request.enable);
+    const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    updateCurrentIcon(tabs);
+  } else if (request.data) {
+    await setStorage(`data:${request.data}`, request.value);
+  } else if (request.extra) {
+    const all = await storage.get(null);
+    const data = Object.entries(all)
+                       .filter(([k]) => k.startsWith('data:'))
+                       .map(([k, v]) => ({ id: k.slice(5), value: v }));
+    sendResponse(data);
+  } else if (request.configs) {
+    sendResponse(await loadConfigs());
+  } else if (request.ignored) {
+    sendResponse(ignoreds);
+  }
 
-            if (key === "urls" || key.indexOf("data:") === 0 || legacyConfigs.includes(key)) {
-                try {
-                    var item = JSON.parse(localStorage.getItem(key));
+  if ((request.setup !== undefined) || (request.ignore !== undefined)) {
+    if (configs.datachange) setTimeout(checkTabs, 10, 'datachange');
+  }
 
-                    if (key === "urls" && Array.isArray(item.value)) {
-                        store[key] = item.value;
-                    } else if ("value" in item) {
-                        store[key] = item.value;
-                    }
-                } catch (ee) {}
-            }
-        }
+  return true; // 表示异步 sendResponse
+}
 
-        await browser.storage.local.set(store);
-    }, 1000);
-})(window);
+/* ---------- Configuration & Data ---------- */
+async function loadConfigs() {
+  const stored = await storage.get(null);
+
+  // First installation: write default values
+  if (Object.keys(stored).length === 0) {
+    await storage.set(DEFAULT_CONFIGS);
+    configs = { ...DEFAULT_CONFIGS };
+  } else {
+    configs = { ...DEFAULT_CONFIGS, ...pick(stored, LEGACY_CONFIG_KEYS) };
+  }
+  return configs;
+}
+
+async function toggleIgnoreData(type, ignore, value) {
+  const key = `${type}s`;
+  const list = await getStorage(key, []);
+
+  const idx = list.indexOf(value);
+  if (ignore && idx === -1)        list.push(value);
+  else if (!ignore && idx !== -1)  list.splice(idx, 1);
+  else return;                     // No change
+
+  ignoreds[key] = list;
+  await setStorage(key, list);
+}
+
+/* ---------- Utility Functions ---------- */
+function pick(obj, keys) {
+  const out = {};
+  keys.forEach(k => { if (k in obj) out[k] = obj[k]; });
+  return out;
+}
