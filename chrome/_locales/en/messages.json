@@ -5,6 +5,9 @@
   "title": {
     "message": "settings"
   },
+  "settings": {
+    "message": "config"
+  },
   "actions_title": {
     "message": "Actions"
   },

@@ -6,12 +6,14 @@
  * https://github.com/brcontainer/prevent-duplicate-tabs
  */
 
-html, body {
+html,
+body {
     padding: 0;
     margin: 0;
 }
 
-html:not(:target), html:not(:target) body {
+html:not(:target),
+html:not(:target) body {
     overflow: hidden;
     width: 320px;
 }
@@ -28,8 +30,8 @@ main {
 * {
     font-family: "Helvetica Neue", Helvetica, "lucida grande", tahoma, Arial, sans-serif;
     -webkit-box-sizing: border-box;
-       -moz-box-sizing: border-box;
-            box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 body {
@@ -37,14 +39,15 @@ body {
     background-color: #faf7f7 !important;
     font-size: 16px;
     -webkit-touch-callout: none;
-      -webkit-user-select: none;
-       -khtml-user-select: none;
-         -moz-user-select: none;
-          -ms-user-select: none;
-              user-select: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
-body, a {
+body,
+a {
     color: #4F4949;
 }
 
@@ -52,7 +55,10 @@ var {
     font-style: normal;
 }
 
-h1, h2, h3, summary {
+h1,
+h2,
+h3,
+summary {
     text-transform: uppercase;
     letter-spacing: 1px;
     padding: 0;
@@ -74,38 +80,39 @@ h1 {
     background-color: #fff;
 }
 
-h1 > .ico {
+h1>.ico {
     vertical-align: middle;
     width: 36px;
     height: 36px;
 }
 
-h1 > span {
+h1>span {
     font-size: 8pt;
     vertical-align: middle;
     position: relative;
     top: 4px;
 }
 
-h1 > .global-config {
+h1>.global-config {
     margin: 10px 4px 0 0;
     float: right;
     font-size: 8pt;
     color: #c0c0c0;
 }
 
-h1 > .global-config > span,
-h1 > .global-config > .toggle {
+h1>.global-config>span,
+h1>.global-config>.toggle {
     vertical-align: middle;
     padding: 0;
 }
 
-h1 > .global-config > .toggle {
+h1>.global-config>.toggle {
     margin-left: 5px;
     font-size: 12px;
 }
 
-h1::after, h1::before {
+h1::after,
+h1::before {
     bottom: -1px;
     left: 19px;
     border: solid transparent;
@@ -117,20 +124,21 @@ h1::after, h1::before {
 }
 
 h1::after {
-    border-color: rgba(250,247,247,0);
+    border-color: rgba(250, 247, 247, 0);
     border-bottom-color: #faf7f7;
     border-width: 5px;
     margin-left: -5px;
 }
 
 h1::before {
-    border-color: rgba(222,218,218,0);
+    border-color: rgba(222, 218, 218, 0);
     border-bottom-color: #dedada;
     border-width: 6px;
     margin-left: -6px;
 }
 
-h2, summary {
+h2,
+summary {
     font-weight: bold;
     font-size: 10pt;
     padding: 10px 12px;
@@ -160,7 +168,7 @@ code {
     color: #383535;
     font-size: 85%;
     font-weight: bold;
-    background-color: rgba(27,31,35,.05);
+    background-color: rgba(27, 31, 35, .05);
     border-radius: 3px;
     overflow: hidden;
     max-width: 100%;
@@ -180,15 +188,15 @@ code {
     background-color: #fff;
     border: 1px solid;
     border-radius: 3px;
-    box-shadow: 0 2px 3px rgba(0,0,0,.04);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, .04);
     transition: all .1s ease;
 }
 
 .group:hover {
-    box-shadow: 0 2px 3px rgba(0,0,0,.04),
-                0 0 8px 0 rgba(0,0,0,.04),
-                0 0 15px 0 rgba(0,0,0,.01),
-                0 0 20px 4px rgba(0,0,0,.02);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, .04),
+        0 0 8px 0 rgba(0, 0, 0, .04),
+        0 0 15px 0 rgba(0, 0, 0, .01),
+        0 0 20px 4px rgba(0, 0, 0, .02);
 }
 
 .row {
@@ -205,29 +213,29 @@ code {
     border-bottom: none;
 }
 
-.row > .col:first-child {
+.row>.col:first-child {
     float: left;
     width: 74px;
     text-align: center;
     padding-top: 5px;
 }
 
-.row > .col:last-child {
+.row>.col:last-child {
     margin: 0 8px 0 75px;
 }
 
-.row > .col > p {
+.row>.col>p {
     padding: 0;
     margin: 0;
     font-size: 80%;
     line-height: 1.3;
 }
 
-.row > .col {
+.row>.col {
     position: relative;
 }
 
-.row > .col > .warn {
+.row>.col>.warn {
     position: absolute;
     right: -4px;
     top: 0;
@@ -245,17 +253,17 @@ code {
     padding: 4px;
 }
 
-.grid > * {
+.grid>* {
     float: left;
     width: 32.333%;
     margin-right: 1%;
 }
 
-.grid > :first-child {
+.grid> :first-child {
     margin-left: .5%;
 }
 
-.grid > :last-child {
+.grid> :last-child {
     margin-right: 0;
 }
 
@@ -280,7 +288,7 @@ code {
     transition: all .1s ease-out;
 }
 
-.themes label > div {
+.themes label>div {
     position: relative;
     height: 100%;
     font-size: 0;
@@ -295,7 +303,7 @@ code {
     font-size: 8pt;
 }
 
-.themes input:not(:checked) + div {
+.themes input:not(:checked)+div {
     opacity: .3;
 }
 
@@ -305,7 +313,7 @@ code {
     margin: 0 0 35px 0 !important;
 }
 
-.themes label > div::before {
+.themes label>div::before {
     display: inline-block;
     content: "";
     height: 100%;
@@ -313,7 +321,7 @@ code {
     vertical-align: middle;
 }
 
-.themes label > div::after {
+.themes label>div::after {
     position: absolute;
     bottom: 14px;
     left: 50%;
@@ -322,16 +330,16 @@ code {
     height: 8px;
     width: 8px;
     border-radius: 8px;
-    background: rgba(0,0,0,0);
+    background: rgba(0, 0, 0, 0);
 }
 
-.themes input:checked + div::after {
+.themes input:checked+div::after {
     background: #404040;
 }
 
-.themes label > div:hover {
-    background: rgba(255,255,255,.5);
-    background: rgba(0,0,0,.2);
+.themes label>div:hover {
+    background: rgba(255, 255, 255, .5);
+    background: rgba(0, 0, 0, .2);
 }
 
 .themes input {
@@ -340,7 +348,7 @@ code {
     left: -100px;
 }
 
-main > footer {
+main>footer {
     padding: 16px 4px;
     margin: 12px 12px 0 12px;
     text-align: center;
@@ -348,24 +356,30 @@ main > footer {
     font-size: 80%;
 }
 
-main > footer a {
+main>footer a {
     text-decoration: none;
     float: right;
 }
 
-main > footer #version {
+main>footer #version {
     float: left;
 }
 
-main > footer, main > footer a, .row > .col > p {
+main>footer,
+main>footer a,
+.row>.col>p {
     color: #928b8b;
 }
 
-h1, .group, .row, main > footer {
+h1,
+.group,
+.row,
+main>footer {
     border-color: #dedada;
 }
 
-.row::after, main > footer::after {
+.row::after,
+main>footer::after {
     clear: both;
     height: 0;
     display: block;
@@ -377,7 +391,7 @@ h1, .group, .row, main > footer {
 }
 
 [data-ignored] button {
-    background: rgba(0,0,0,0);
+    background: rgba(0, 0, 0, 0);
     outline: none;
     border: none;
     border-radius: 24px;
@@ -392,7 +406,7 @@ h1, .group, .row, main > footer {
 
 [data-ignored] button:hover {
     transform: scale(1.1);
-    background-color: rgba(0,0,0,.05);
+    background-color: rgba(0, 0, 0, .05);
 }
 
 .row.data-ignored {
@@ -410,8 +424,9 @@ h1, .group, .row, main > footer {
     display: none;
 }
 
-html, html * {
-    scrollbar-color: rgba(0,0,0,.2) #dfdfdf;
+html,
+html * {
+    scrollbar-color: rgba(0, 0, 0, .2) #dfdfdf;
     scrollbar-width: thin;
 }
 
@@ -421,14 +436,15 @@ html, html * {
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: rgba(0,0,0,.2);
+    background-color: rgba(0, 0, 0, .2);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(0,0,0,.5);
+    background-color: rgba(0, 0, 0, .5);
 }
 
-html:target, html:target body {
+html:target,
+html:target body {
     max-height: initial;
     height: auto;
     width: auto;
@@ -456,7 +472,8 @@ html:target body {
     padding: 0;
 }
 
-html:target h1::before, html:target h1::after {
+html:target h1::before,
+html:target h1::after {
     display: none;
 }
 
@@ -464,7 +481,8 @@ html:target .row {
     background-color: #fff8f8;
 }
 
-html:target #actions, #actions:not(.show) {
+html:target #actions,
+#actions:not(.show) {
     display: none;
 }
 
@@ -480,6 +498,17 @@ html:target #actions, #actions:not(.show) {
     outline: none;
 }
 
-:focus-visible, .toggle > input:focus-visible ~ label::after {
+:focus-visible,
+.toggle>input:focus-visible~label::after {
     outline: .15rem solid #634dff;
+}
+
+.ico.datamgr {
+    opacity: .8;
+    cursor: pointer;
+    transition: opacity .2s ease;
+}
+
+.ico.datamgr:hover {
+    opacity: 1;
 }

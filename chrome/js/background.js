@@ -13,7 +13,7 @@
 'use strict';
 
 /* ---------- Storage helpers ---------- */
-const storage = chrome.storage.local;
+const data = await storage.get(null);
 const getStorage = async (key, fallback) => {
   const res = await storage.get(key);
   return res[key] !== undefined ? res[key] : fallback;

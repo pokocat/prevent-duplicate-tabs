@@ -1,0 +1,121 @@
+/* 𝗗𝘂𝗽𝗹𝗶𝗰𝗮𝘁𝗲-𝗧𝗮𝗯 𝗗𝗮𝘁𝗮 𝗠𝗮𝗻𝗮𝗴𝗲𝗿 – modern UI  */
+
+:root {
+    /* brand colors */
+    --green-50: #e7faf5;
+    --green-500: #18b287;
+    --green-600: #139970;
+    --gray-100: #f7f9fc;
+    --gray-300: #d7dde5;
+    --gray-700: #38424e;
+    --radius: 10px;
+    --shadow: 0 2px 8px rgba(0, 0, 0, .08);
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 2rem;
+    font: 14px/1.5 "Inter", system-ui, sans-serif;
+    color: var(--gray-700);
+    background: var(--gray-100);
+}
+
+/* ---------- layout ---------- */
+.container {
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    gap: 2rem;
+}
+
+/* ---------- headings ---------- */
+h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+    color: var(--green-600);
+}
+
+h2 {
+    font-size: 1.1rem;
+    margin: 0 0 .5rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+/* ---------- card ---------- */
+.card {
+    padding: 1.5rem;
+    background: #fff;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+/* ---------- json viewer ---------- */
+#jsonView {
+    background: var(--green-50);
+    border: 1px dashed var(--green-500);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 1rem;
+    max-height: 50vh;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* ---------- buttons ---------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .5rem 1rem;
+    margin: 0 .4rem .6rem 0;
+    font-size: .875rem;
+    font-weight: 500;
+    color: #fff;
+    background: var(--green-500);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background .2s ease;
+}
+
+.btn:hover {
+    background: var(--green-600);
+}
+
+.btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* file input hidden, replaced by styled label */
+.file-input {
+    position: relative;
+    display: inline-block;
+}
+
+.file-input input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* ---------- responsive ---------- */
+@media (min-width: 768px) {
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+}

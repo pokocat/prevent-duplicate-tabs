@@ -18,6 +18,12 @@
     background-position: right center;
     background-image: url(../images/setup.svg);
 }
+.ico.datamgr {
+    background-position: right center;
+    background-image: url(../images/db.svg);
+    width: 24px;
+    height: 24px;
+}
 .ico.bug {
     background-image: url(../images/bug.svg);
     height: 16px;

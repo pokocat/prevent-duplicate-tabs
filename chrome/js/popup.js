@@ -37,10 +37,10 @@
 
     function markdown(message) {
         return message
-                .replace(/(^|\s|[>])_(.*?)_($|\s|[<])/g, '$1<i>$2<\/i>$3')
-                    .replace(/(^|\s|[>])`(.*?)`($|\s|[<])/g, '$1<code>$2<\/code>$3')
-                        .replace(/\{([a-z])(\w+)?\}/gi, '<var name="$1$2"><\/var>')
-                            .replace(/(^|\s|[>])\*(.*?)\*($|\s|[<])/g, '$1<strong>$2<\/strong>$3');
+            .replace(/(^|\s|[>])_(.*?)_($|\s|[<])/g, '$1<i>$2<\/i>$3')
+            .replace(/(^|\s|[>])`(.*?)`($|\s|[<])/g, '$1<code>$2<\/code>$3')
+            .replace(/\{([a-z])(\w+)?\}/gi, '<var name="$1$2"><\/var>')
+            .replace(/(^|\s|[>])\*(.*?)\*($|\s|[<])/g, '$1<strong>$2<\/strong>$3');
     }
 
     var locales = d.querySelectorAll("[data-i18n]");
@@ -92,4 +92,10 @@
             }, 20);
         }, 20);
     }, 10);
+
+    document.getElementById('openBackend')
+        .addEventListener('click', () => {
+            chrome.tabs.create({ url: chrome.runtime.getURL('views/backend.html') });
+        });
+
 })(window, document);
