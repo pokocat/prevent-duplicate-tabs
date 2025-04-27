@@ -1,40 +1,39 @@
 {
-  "manifest_version": 3,
-  "name": "Duplicate Tabs Preventor",
-  "version": "0.8.0",
-  "description": "Prevent duplicate tabs",
-  "default_locale": "en",
-  "minimum_chrome_version": "104",
-  "icons": {
-    "16": "images/icon.png",
-    "32": "images/32x.png",
-    "48": "images/48x.png",
-    "128": "images/128x.png"
-  },
-  "action": {
-    "default_icon": {
-      "16": "images/icon.png",
-      "32": "images/32x.png"
+    "manifest_version": 3,
+    "name": "Duplicate Tabs Preventor",
+    "version": "0.8.1",
+    "description": "Prevent duplicate tabs",
+    "default_locale": "en",
+    "minimum_chrome_version": "104",
+    "icons": {
+        "16": "images/icon.png",
+        "32": "images/32x.png",
+        "48": "images/48x.png",
+        "128": "images/128x.png"
     },
-    "default_popup": "views/popup.html#popup"
-  },
-  "options_ui": {
-    "page": "views/popup.html#config",
-    "open_in_tab": false
-  },
-  "background": {
-    "service_worker": "js/background.js",
-    "type": "module"
-  },
-  "permissions": [
-    "tabs",
-    "storage",
-    "scripting"
-  ],
-  "host_permissions": [
-    "*://*/*"
-  ],
-  "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
-  }
+    "action": {
+        "default_icon": {
+            "16": "images/icon.png",
+            "32": "images/32x.png"
+        },
+        "default_popup": "views/popup.html#popup"
+    },
+    "options_ui": {
+        "page": "views/popup.html#config",
+        "open_in_tab": false
+    },
+    "background": {
+        "service_worker": "js/background.js",
+        "type": "module"
+    },
+    "permissions": [
+        "tabs",
+        "storage"
+    ],
+    "host_permissions": [
+        "*://*/*"
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'"
+    }
 }
