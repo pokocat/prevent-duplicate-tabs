@@ -1,34 +1,55 @@
-/* js/backend.js – storage viewer / import / export */
-const data = await storage.get(null);
+/* backend.js – Data Manager + manual sync */
 
-/* helpers */
-async function loadAll() { return await storage.get(null); }
-async function saveAll(o) { await storage.clear(); await storage.set(o); }
+import {
+    snapshotLocal,
+    restoreToLocal,
+    pushToSync,
+    pullFromSync
+} from './store.js';
 
-/* DOM */
-const $view = document.getElementById('jsonView');
-const $ref = document.getElementById('refresh');
-const $exp = document.getElementById('export');
-const $file = document.getElementById('fileInput');
-const $imp = document.getElementById('import');
+/* ---------- DOM refs ---------- */
+const $ = id => document.getElementById(id);
+const jsonView = $('jsonView');
+const refreshBtn = $('refresh');
+const exportBtn = $('export');
+const fileInput = $('fileInput');
+const importBtn = $('import');
+const syncSwitch = $('syncSwitch');
+const syncNowBtn = $('syncNowBtn');
+const syncMsg = $('syncMsg');
 
-async function refresh() {
-    $view.textContent = 'loading…';
-    try {
-        const data = await loadAll();
-        $view.textContent = JSON.stringify(data, null, 2);
-    } catch (e) {
-        console.error(e);
-        $view.textContent = 'Error reading storage';
+/* ---------- Helpers ---------- */
+async function refreshJson() {
+
+    // if sync enabled, pull from cloud first
+    if (syncSwitch.checked) {
+        await pullFromSync();
+        // optional: you can show a loading indicator here
     }
+    const data = await snapshotLocal();
+
+    jsonView.textContent = JSON.stringify(data, null, 2);
+
+    /* update switch status */
+    const enabled = (await snapshotLocal()).syncEnabled ?? true;
+    syncSwitch.checked = enabled;
+    syncMsg.style.display = enabled ? 'block' : 'none';
 }
 
-document.addEventListener('DOMContentLoaded', refresh);
-$ref.addEventListener('click', refresh);
+/* ---------- Initial load ---------- */
+document.addEventListener('DOMContentLoaded', async () => {
+    /* auto-pull once if local is empty */
+    // Always sync down first
+    await pullFromSync();
+    await refreshJson();
+});
 
-$exp.addEventListener('click', async () => {
+/* ---------- Buttons ---------- */
+refreshBtn.addEventListener('click', refreshJson);
+
+exportBtn.addEventListener('click', async () => {
     const blob = new Blob(
-        [JSON.stringify(await loadAll(), null, 2)],
+        [JSON.stringify(await snapshotLocal(), null, 2)],
         { type: 'application/json' }
     );
     const url = URL.createObjectURL(blob);
@@ -38,15 +59,35 @@ $exp.addEventListener('click', async () => {
     );
 });
 
-$imp.addEventListener('click', async () => {
-    const file = $file.files?.[0];
-    if (!file) return alert('Select a file first');
+importBtn.addEventListener('click', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return alert('请选择文件');
     try {
-        const json = JSON.parse(await file.text());
-        await saveAll(json);
-        await refresh();
-        alert('Imported!');
+        const obj = JSON.parse(await file.text());
+        await restoreToLocal(obj);
+        await refreshJson();
+        alert('已导入并覆盖本地配置');
     } catch (e) {
-        alert('Invalid JSON');
+        console.error(e);
+        alert('JSON 格式不正确');
     }
+});
+
+/* sync switch */
+syncSwitch.addEventListener('change', async e => {
+    const all = await snapshotLocal();
+    all.syncEnabled = e.target.checked;
+    await restoreToLocal(all);
+    syncMsg.style.display = e.target.checked ? 'block' : 'none';
+});
+
+/* manual push */
+syncNowBtn.addEventListener('click', async () => {
+    if (!syncSwitch.checked) {
+        alert('请先勾选启用同步');
+        return;
+    }
+    const ok = await pushToSync();
+    console.log('pushToSync success?', ok);
+    alert(ok ? '已上传至云端！' : '上传失败：超出配额或未登录');
 });

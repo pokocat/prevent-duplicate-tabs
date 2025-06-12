@@ -119,3 +119,7 @@ h2 {
         gap: 2rem;
     }
 }
+
+.alert.success {
+    color: #139970
+}

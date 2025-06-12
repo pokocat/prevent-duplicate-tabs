@@ -9,11 +9,14 @@
  * - Fully utilize chrome.storage.local
  * origin from: https://github.com/your‑fork/prevent‑duplicate‑tabs
  */
+import { pullFromSync, pushToSync } from './store.js';
+Object.assign(self, { pushToSync, pullFromSync }); // 方便 DevTools 调
+const storage = chrome.storage.local;
+/* ---- 启动先拉云端一次 ---- */
+await pullFromSync();
 
 'use strict';
-
 /* ---------- Storage helpers ---------- */
-const data = await storage.get(null);
 const getStorage = async (key, fallback) => {
   const res = await storage.get(key);
   return res[key] !== undefined ? res[key] : fallback;
@@ -41,30 +44,33 @@ const DEFAULT_CONFIGS = {
 const LEGACY_KEYS = Object.keys(DEFAULT_CONFIGS);
 
 /* ---------- RegExps ---------- */
-const isHttpRE      = /^https?:\/\/\w/i;
-const isNewTabRE    = /^(about:blank|chrome:\/+?(newtab|startpageshared)\/?)$/i;
-const removeHashRE  = /#[\s\S]+?$/;
+const isHttpRE = /^https?:\/\/\w/i;
+const isNewTabRE = /^(about:blank|chrome:\/+?(newtab|startpageshared)\/?)$/i;
+const removeHashRE = /#[\s\S]+?$/;
 const removeQueryRE = /\?[\s\S]+?$/;
 
 /* ---------- State ---------- */
-let configs  = { ...DEFAULT_CONFIGS };
+let configs = { ...DEFAULT_CONFIGS };
 let ignoreds = { urls: [], hosts: [] };
-let timeout  = null;
+let timeout = null;
 
 /* ---------- Init ---------- */
 (async function init() {
   try {
+    // ---- Pull from sync BEFORE any local defaults are written ----
+    await pullFromSync(); // if cloud has data, restoreToLocal() will overwrite local storage
+
+    // ---- Then load local configs (will not overwrite if sync populated) ----
     await loadConfigs();
     await loadIgnored();
-
     /* -- First run check -- */
     setTimeout(checkTabs, 100, 'start');
 
     /* -- Event listeners (registered only after configs are ready) -- */
     chrome.tabs.onAttached.addListener(createEvent('attach', 500));
-    chrome.tabs.onCreated .addListener(createEvent('create', 10));
+    chrome.tabs.onCreated.addListener(createEvent('create', 10));
     chrome.tabs.onReplaced.addListener(createEvent('replace', 10));
-    chrome.tabs.onUpdated .addListener(createEvent('update', 10));
+    chrome.tabs.onUpdated.addListener(createEvent('update', 10));
 
     chrome.tabs.onActivated.addListener(({ tabId }) => toggleIgnoreIcon(tabId));
 
@@ -77,11 +83,11 @@ let timeout  = null;
 /* ---------- Helpers ---------- */
 function isDisabled() {
   return configs.turnoff || (
-    !configs.start     &&
-    !configs.replace   &&
-    !configs.update    &&
-    !configs.create    &&
-    !configs.attach    &&
+    !configs.start &&
+    !configs.replace &&
+    !configs.update &&
+    !configs.create &&
+    !configs.attach &&
     !configs.datachange
   );
 }
@@ -102,17 +108,17 @@ function createEvent(type, delay) {
 async function checkTabs(trigger) {
   if (configs[trigger] === false || isDisabled()) return;
   const query = configs.windows ? { lastFocusedWindow: true } : {};
-  const tabs  = await chrome.tabs.query(query);
+  const tabs = await chrome.tabs.query(query);
   groupAndClose(tabs);
 }
 
 function groupAndClose(tabs) {
   const groups = {};
-  const onlyHttp       = configs.http;
-  const ignoreHash     = !configs.hash;
-  const ignoreQuery    = !configs.query;
-  const ignoreIncog    = !configs.incognito;
-  const diffWindows    = configs.windows;
+  const onlyHttp = configs.http;
+  const ignoreHash = !configs.hash;
+  const ignoreQuery = !configs.query;
+  const ignoreIncog = !configs.incognito;
+  const diffWindows = configs.windows;
   const diffContainers = configs.containers;
 
   for (const tab of tabs) {
@@ -127,7 +133,7 @@ function groupAndClose(tabs) {
       isIgnored(url)
     ) continue;
 
-    if (ignoreHash)  url = url.replace(removeHashRE, '');
+    if (ignoreHash) url = url.replace(removeHashRE, '');
     if (ignoreQuery) url = url.replace(removeQueryRE, '');
 
     let prefix = 'normal';
@@ -135,7 +141,7 @@ function groupAndClose(tabs) {
     else if (diffContainers && tab.cookieStoreId) prefix = String(tab.cookieStoreId);
 
     const key = diffWindows ? `${prefix}::${tab.windowId}::${url}`
-                            : `${prefix}::${url}`;
+      : `${prefix}::${url}`;
 
     (groups[key] ||= []).push({ id: tab.id, active: tab.active });
   }
@@ -160,7 +166,7 @@ function isIgnored(url) {
 }
 
 async function loadIgnored() {
-  ignoreds.urls  = await getStorage('urls', []);
+  ignoreds.urls = await getStorage('urls', []);
   ignoreds.hosts = await getStorage('hosts', []);
 }
 
@@ -177,7 +183,7 @@ function toggleIgnoreIcon(tabId, url) {
     ? '/images/disabled.png'
     : '/images/icon.png';
 
-  chrome.action.setIcon({ tabId, path }).catch(() => {});
+  chrome.action.setIcon({ tabId, path }).catch(() => { });
 }
 
 async function updateCurrentIcon() {
@@ -194,19 +200,19 @@ function onMessageHandler(request, sender, sendResponse) {
       toggleIgnoreIcon(request.tabId, request.url);
       sendResponse(true);
 
-    /* toggle setup option */
+      /* toggle setup option */
     } else if (request.setup !== undefined) {
       configs[request.setup] = !!request.enable;
       await setStorage(request.setup, !!request.enable);
       await updateCurrentIcon();
       sendResponse(true);
 
-    /* save extra data:key */
+      /* save extra data:key */
     } else if (request.data) {
       await setStorage(`data:${request.data}`, request.value);
       sendResponse(true);
 
-    /* request extra list */
+      /* request extra list */
     } else if (request.extra) {
       const all = await storage.get(null);
       const data = Object.entries(all)
@@ -214,11 +220,11 @@ function onMessageHandler(request, sender, sendResponse) {
         .map(([k, v]) => ({ id: k.slice(5), value: v }));
       sendResponse(data);
 
-    /* configs snapshot */
+      /* configs snapshot */
     } else if (request.configs) {
       sendResponse(configs);
 
-    /* ignored list snapshot */
+      /* ignored list snapshot */
     } else if (request.ignored) {
       sendResponse(ignoreds);
     }
@@ -253,8 +259,8 @@ async function toggleIgnoreData(type, ignore, value) {
   const list = await getStorage(key, []);
 
   const idx = list.indexOf(value);
-  if (ignore && idx === -1)        list.push(value);
-  else if (!ignore && idx !== -1)  list.splice(idx, 1);
+  if (ignore && idx === -1) list.push(value);
+  else if (!ignore && idx !== -1) list.splice(idx, 1);
   else return;
 
   ignoreds[key] = list;

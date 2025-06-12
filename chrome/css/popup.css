@@ -503,12 +503,19 @@ html:target #actions,
     outline: .15rem solid #634dff;
 }
 
-.ico.datamgr {
-    opacity: .8;
+.openBackend {
     cursor: pointer;
-    transition: opacity .2s ease;
+    transition: color .2s ease, transform .15s ease;
 }
 
-.ico.datamgr:hover {
-    opacity: 1;
+.openBackend:hover {
+    color: #18b287;
+    /* highlight mint */
+    transform: scale(1.08);
+    /* slight zoom    */
+}
+
+.openBackend:focus-visible {
+    outline: 2px solid #18b287;
+    outline-offset: 2px;
 }

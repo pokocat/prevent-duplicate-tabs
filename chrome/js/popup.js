@@ -93,9 +93,11 @@
         }, 20);
     }, 10);
 
-    document.getElementById('openBackend')
-        .addEventListener('click', () => {
-            chrome.tabs.create({ url: chrome.runtime.getURL('views/backend.html') });
-        });
+    document.querySelectorAll('.openBackend')
+        .forEach(el =>
+            el.addEventListener('click', () =>
+                chrome.tabs.create({ url: chrome.runtime.getURL('views/backend.html') })
+            )
+        );
 
 })(window, document);

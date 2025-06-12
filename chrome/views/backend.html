@@ -1,26 +1,69 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <title>Duplicate-Tab Data Manager</title>
-    <link rel="stylesheet" href="../css/backend.css">
+    <meta charset="UTF-8" />
+    <title>Duplicate-Tab Preventor Settings</title>
+    <link rel="stylesheet" href="../css/backend.css" />
+    <style>
+        /* UI 微调：让状态信息更显眼 */
+        #status {
+            margin-left: .5rem;
+            font-weight: 600;
+        }
+
+        #status.ok {
+            color: #07a454;
+        }
+
+        #status.warn {
+            color: #e67e22;
+        }
+
+        #status.error {
+            color: #e74c3c;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>Duplicate-Tab Data Manager</h1>
+        <h1>Duplicate-Tab Preventor Settings</h1>
 
+        <!-- === SYNC SETTINGS ===================================================== -->
+        <div class="card">
+            <h2>Option Sync <small>(experimental)</small></h2>
+
+            <p id="syncMsg" class="alert success" style="display:none;">
+                ✔ Your settings will be synced to other devices.
+            </p>
+
+            <label class="switch-row">
+                <input type="checkbox" id="syncSwitch">
+                <span>Enable sync across devices</span>
+            </label>
+
+            <p class="small">
+                You must be signed in to Chrome on every device (including this one)
+                for sync to work.
+            </p>
+
+            <button id="syncNowBtn" class="btn">🔁 Sync Now</button>
+            <span id="status"></span>
+        </div>
+
+        <!-- === STORED DATA VIEW ================================================= -->
         <div class="card">
             <h2>Stored Data</h2>
             <pre id="jsonView">{ loading… }</pre>
+            <button id="refresh" class="btn">🔄 Refresh</button>
         </div>
 
+        <!-- === EXPORT / IMPORT =================================================== -->
         <div class="card grid-2">
             <div>
                 <h2>Export</h2>
                 <button id="export" class="btn">⬇️ Export JSON</button>
-                <button id="refresh" class="btn">🔄 Refresh</button>
             </div>
 
             <div>
