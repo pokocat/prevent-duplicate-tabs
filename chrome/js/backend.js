@@ -5,7 +5,7 @@ import {
     restoreToLocal,
     pushToSync,
     pullFromSync
-} from './store.js';
+} from './storage.js';
 
 /* ---------- DOM refs ---------- */
 const $ = id => document.getElementById(id);
@@ -17,21 +17,30 @@ const importBtn = $('import');
 const syncSwitch = $('syncSwitch');
 const syncNowBtn = $('syncNowBtn');
 const syncMsg = $('syncMsg');
+const statusMsg = $('statusMsg'); // ← 页面上的状态提示区域
 
 /* ---------- Helpers ---------- */
 async function refreshJson() {
     const data = await snapshotLocal();
     jsonView.textContent = JSON.stringify(data, null, 2);
 
-    /* update switch status */
-    const enabled = (await snapshotLocal()).syncEnabled ?? true;
+    const enabled = data.syncEnabled ?? true;
     syncSwitch.checked = enabled;
     syncMsg.style.display = enabled ? 'block' : 'none';
 }
 
+function showStatus(message, type = 'info') {
+    if (!statusMsg) return;
+    statusMsg.textContent = message;
+    statusMsg.className = `status ${type}`;
+    statusMsg.style.display = 'block';
+    setTimeout(() => {
+        statusMsg.style.display = 'none';
+    }, 3000);
+}
+
 /* ---------- Initial load ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
-    /* auto-pull once if local is empty */
     const localEmpty = !Object.keys(await snapshotLocal()).length;
     if (localEmpty) await pullFromSync();
     await refreshJson();
@@ -54,15 +63,15 @@ exportBtn.addEventListener('click', async () => {
 
 importBtn.addEventListener('click', async () => {
     const file = fileInput.files?.[0];
-    if (!file) return alert('请选择文件');
+    if (!file) return showStatus('请选择文件', 'warn');
     try {
         const obj = JSON.parse(await file.text());
         await restoreToLocal(obj);
         await refreshJson();
-        alert('已导入并覆盖本地配置');
+        showStatus('已导入并覆盖本地配置', 'success');
     } catch (e) {
         console.error(e);
-        alert('JSON 格式不正确');
+        showStatus('JSON 格式不正确', 'error');
     }
 });
 
@@ -77,9 +86,17 @@ syncSwitch.addEventListener('change', async e => {
 /* manual push */
 syncNowBtn.addEventListener('click', async () => {
     if (!syncSwitch.checked) {
-        alert('请先勾选启用同步');
+        showStatus('请先勾选启用同步', 'warn');
         return;
     }
+
     const ok = await pushToSync();
-    alert(ok ? '已上传至云端！' : '上传失败：超出配额或未登录');
+
+    if (ok) {
+        await pullFromSync(true);  // 强制用刚刚上传的云端数据覆盖本地
+        await refreshJson();
+        showStatus('☁️ Uploaded to the cloud! ', 'success');
+    } else {
+        showStatus('Upload failed: Quota exceeded or you are not logged in', 'error');
+    }
 });

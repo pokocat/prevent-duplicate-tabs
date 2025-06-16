@@ -1,25 +1,15 @@
-/* Prevent Duplicate Tabs – MV3 Service Worker
- * https://github.com/brcontainer/prevent-duplicate-tabs
- * Copyright (c) 2025 Guilherme Nascimento
- * Released under the MIT license
- *
- * Major Changes:
- * - Remove window dependency
- * - Use chrome.* API
- * - Fully utilize chrome.storage.local
- * origin from: https://github.com/your‑fork/prevent‑duplicate‑tabs
- */
-
+/* background.js – MV3 service worker */
 'use strict';
-const storage = chrome.storage.local;   // <— 关键补回这一行
-/* ---------- Storage helpers ---------- */
-const getStorage = async (key, fallback) => {
-  const res = await storage.get(key);
-  return res[key] !== undefined ? res[key] : fallback;
-};
-const setStorage = (key, value) => storage.set({ [key]: value });
 
-/* ---------- Default configs ---------- */
+import {
+  snapshotLocal,
+  restoreToLocal,
+  pushToSync,
+  pullFromSync
+} from './storage.js';
+
+const storage = chrome.storage.local;
+
 const DEFAULT_CONFIGS = {
   turnoff: false,
   old: true,
@@ -39,41 +29,33 @@ const DEFAULT_CONFIGS = {
 };
 const LEGACY_KEYS = Object.keys(DEFAULT_CONFIGS);
 
-/* ---------- RegExps ---------- */
 const isHttpRE = /^https?:\/\/\w/i;
-const isNewTabRE = /^(about:blank|chrome:\/+?(newtab|startpageshared)\/?)$/i;
+const isNewTabRE = /^(about:blank|chrome:\/\/(?:newtab|startpageshared)\/?)/i;
 const removeHashRE = /#[\s\S]+?$/;
 const removeQueryRE = /\?[\s\S]+?$/;
 
-/* ---------- State ---------- */
 let configs = { ...DEFAULT_CONFIGS };
 let ignoreds = { urls: [], hosts: [] };
-let timeout = null;
 
-/* ---------- Init ---------- */
 (async function init() {
   try {
+    await pullFromSync();
     await loadConfigs();
     await loadIgnored();
+    setTimeout(() => checkTabs('start'), 100);
 
-    /* -- First run check -- */
-    setTimeout(checkTabs, 100, 'start');
-
-    /* -- Event listeners (registered only after configs are ready) -- */
     chrome.tabs.onAttached.addListener(createEvent('attach', 500));
     chrome.tabs.onCreated.addListener(createEvent('create', 10));
     chrome.tabs.onReplaced.addListener(createEvent('replace', 10));
     chrome.tabs.onUpdated.addListener(createEvent('update', 10));
 
     chrome.tabs.onActivated.addListener(({ tabId }) => toggleIgnoreIcon(tabId));
-
     chrome.runtime.onMessage.addListener(onMessageHandler);
   } catch (e) {
     console.error('[PDT] init error', e);
   }
 })();
 
-/* ---------- Helpers ---------- */
 function isDisabled() {
   return configs.turnoff || (
     !configs.start &&
@@ -86,15 +68,13 @@ function isDisabled() {
 }
 
 async function safeRemove(id) {
-  try { await chrome.tabs.remove(id); }
-  catch (e) { /* tab already closed – ignore */ }
+  try { await chrome.tabs.remove(id); } catch (_) {}
 }
 
-/* ---------- Duplicate‑tab logic ---------- */
 function createEvent(type, delay) {
   return tab => {
-    setTimeout(checkTabs, delay, type);
-    setTimeout(toggleIgnoreIcon, 100, tab.id || tab.tabId || tab, tab.url);
+    setTimeout(() => checkTabs(type), delay);
+    setTimeout(() => toggleIgnoreIcon(tab.id || tab.tabId || tab, tab.url), 100);
   };
 }
 
@@ -118,9 +98,7 @@ function groupAndClose(tabs) {
     let url = tab.url || '';
 
     if (
-      tab.pinned ||
-      url === '' ||
-      isNewTabRE.test(url) ||
+      tab.pinned || url === '' || isNewTabRE.test(url) ||
       (ignoreIncog && tab.incognito) ||
       (onlyHttp && !isHttpRE.test(url)) ||
       isIgnored(url)
@@ -133,9 +111,7 @@ function groupAndClose(tabs) {
     if (tab.incognito) prefix = 'incognito';
     else if (diffContainers && tab.cookieStoreId) prefix = String(tab.cookieStoreId);
 
-    const key = diffWindows ? `${prefix}::${tab.windowId}::${url}`
-      : `${prefix}::${url}`;
-
+    const key = diffWindows ? `${prefix}::${tab.windowId}::${url}` : `${prefix}::${url}`;
     (groups[key] ||= []).push({ id: tab.id, active: tab.active });
   }
 
@@ -144,30 +120,32 @@ function groupAndClose(tabs) {
 
 function closeDuplicates(tabs) {
   if (tabs.length < 2) return;
-  tabs.sort(sortTabs);
+  tabs.sort((a, b) => {
+    if (configs.active && (a.active || b.active)) return a.active ? -1 : 1;
+    return configs.old && a.id < b.id ? 1 : -1;
+  });
   for (let i = 1; i < tabs.length; i++) safeRemove(tabs[i].id);
 }
 
-function sortTabs(a, b) {
-  if (configs.active && (a.active || b.active)) return a.active ? -1 : 1;
-  return (configs.old && a.id < b.id) ? 1 : -1;
-}
-
-/* ---------- Ignore list & icon ---------- */
 function isIgnored(url) {
-  return ignoreds.urls.includes(url) || ignoreds.hosts.includes(new URL(url).host);
+  try {
+    return ignoreds.urls.includes(url) || ignoreds.hosts.includes(new URL(url).host);
+  } catch {
+    return false;
+  }
 }
 
 async function loadIgnored() {
-  ignoreds.urls = await getStorage('urls', []);
-  ignoreds.hosts = await getStorage('hosts', []);
+  ignoreds.urls = (await storage.get('urls')).urls || [];
+  ignoreds.hosts = (await storage.get('hosts')).hosts || [];
 }
 
 function toggleIgnoreIcon(tabId, url) {
   if (!url) {
     chrome.tabs.get(tabId, t => {
-      const u = t?.url || t?.pendingUrl;
-      setTimeout(toggleIgnoreIcon, u ? 0 : 500, tabId, u);
+      if (chrome.runtime.lastError || !t) return;
+      const u = t.url || t.pendingUrl;
+      setTimeout(() => toggleIgnoreIcon(tabId, u), u ? 0 : 500);
     });
     return;
   }
@@ -176,7 +154,7 @@ function toggleIgnoreIcon(tabId, url) {
     ? '/images/disabled.png'
     : '/images/icon.png';
 
-  chrome.action.setIcon({ tabId, path }).catch(() => { });
+  chrome.action.setIcon({ tabId, path }).catch(() => {});
 }
 
 async function updateCurrentIcon() {
@@ -184,72 +162,50 @@ async function updateCurrentIcon() {
   if (tab) toggleIgnoreIcon(tab.id, tab.url);
 }
 
-/* ---------- Message handler ---------- */
 function onMessageHandler(request, sender, sendResponse) {
   (async () => {
-    /* toggle ignore (URL or host) */
     if (request.ignore !== undefined) {
       await toggleIgnoreData(request.type, request.ignore, request.value);
       toggleIgnoreIcon(request.tabId, request.url);
       sendResponse(true);
-
-      /* toggle setup option */
     } else if (request.setup !== undefined) {
       configs[request.setup] = !!request.enable;
-      await setStorage(request.setup, !!request.enable);
+      await storage.set({ [request.setup]: !!request.enable });
       await updateCurrentIcon();
       sendResponse(true);
-
-      /* save extra data:key */
     } else if (request.data) {
-      await setStorage(`data:${request.data}`, request.value);
+      await storage.set({ [`data:${request.data}`]: request.value });
       sendResponse(true);
-
-      /* request extra list */
     } else if (request.extra) {
       const all = await storage.get(null);
       const data = Object.entries(all)
         .filter(([k]) => k.startsWith('data:'))
         .map(([k, v]) => ({ id: k.slice(5), value: v }));
       sendResponse(data);
-
-      /* configs snapshot */
     } else if (request.configs) {
       sendResponse(configs);
-
-      /* ignored list snapshot */
     } else if (request.ignored) {
       sendResponse(ignoreds);
     }
 
-    /* trigger datachange scan */
     if ((request.setup !== undefined) || (request.ignore !== undefined)) {
-      if (configs.datachange) setTimeout(checkTabs, 10, 'datachange');
+      if (configs.datachange) setTimeout(() => checkTabs('datachange'), 10);
     }
   })().catch(err => console.error('[PDT] message error', err));
-
-  /* Keep the port open for async sendResponse */
   return true;
 }
 
-/* ---------- Config loader ---------- */
 async function loadConfigs() {
   const stored = await storage.get(null);
-
-  /* First install: write defaults */
-  if (Object.keys(stored).length === 0) {
-    await storage.set(DEFAULT_CONFIGS);
-    configs = { ...DEFAULT_CONFIGS };
-  } else {
-    configs = { ...DEFAULT_CONFIGS, ...pick(stored, LEGACY_KEYS) };
-  }
+  configs = Object.keys(stored).length === 0
+    ? { ...DEFAULT_CONFIGS }
+    : { ...DEFAULT_CONFIGS, ...pick(stored, LEGACY_KEYS) };
 }
 
-/* ---------- Ignore list toggle ---------- */
 async function toggleIgnoreData(type, ignore, value) {
   if (value === undefined) return;
   const key = `${type}s`;
-  const list = await getStorage(key, []);
+  const list = (await storage.get(key))[key] || [];
 
   const idx = list.indexOf(value);
   if (ignore && idx === -1) list.push(value);
@@ -257,12 +213,11 @@ async function toggleIgnoreData(type, ignore, value) {
   else return;
 
   ignoreds[key] = list;
-  await setStorage(key, list);
+  await storage.set({ [key]: list });
 }
 
-/* ---------- util ---------- */
-const pick = (obj, keys) => {
+function pick(obj, keys) {
   const out = {};
   keys.forEach(k => { if (k in obj) out[k] = obj[k]; });
   return out;
-};
+}

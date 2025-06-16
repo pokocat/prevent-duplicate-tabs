@@ -123,3 +123,30 @@ h2 {
 .alert.success {
     color: #139970
 }
+
+.status {
+    margin-top: 10px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.status.info {
+    background: #eef;
+    color: #333;
+}
+
+.status.success {
+    background: #dfd;
+    color: #060;
+}
+
+.status.warn {
+    background: #ffd;
+    color: #960;
+}
+
+.status.error {
+    background: #fdd;
+    color: #900;
+}
