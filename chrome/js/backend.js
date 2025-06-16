@@ -20,14 +20,7 @@ const syncMsg = $('syncMsg');
 
 /* ---------- Helpers ---------- */
 async function refreshJson() {
-
-    // if sync enabled, pull from cloud first
-    if (syncSwitch.checked) {
-        await pullFromSync();
-        // optional: you can show a loading indicator here
-    }
     const data = await snapshotLocal();
-
     jsonView.textContent = JSON.stringify(data, null, 2);
 
     /* update switch status */
@@ -39,8 +32,8 @@ async function refreshJson() {
 /* ---------- Initial load ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
     /* auto-pull once if local is empty */
-    // Always sync down first
-    await pullFromSync();
+    const localEmpty = !Object.keys(await snapshotLocal()).length;
+    if (localEmpty) await pullFromSync();
     await refreshJson();
 });
 
@@ -88,6 +81,5 @@ syncNowBtn.addEventListener('click', async () => {
         return;
     }
     const ok = await pushToSync();
-    console.log('pushToSync success?', ok);
     alert(ok ? '已上传至云端！' : '上传失败：超出配额或未登录');
 });

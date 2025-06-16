@@ -9,13 +9,9 @@
  * - Fully utilize chrome.storage.local
  * origin from: https://github.com/your‑fork/prevent‑duplicate‑tabs
  */
-import { pullFromSync, pushToSync } from './store.js';
-Object.assign(self, { pushToSync, pullFromSync }); // 方便 DevTools 调
-const storage = chrome.storage.local;
-/* ---- 启动先拉云端一次 ---- */
-await pullFromSync();
 
 'use strict';
+const storage = chrome.storage.local;   // <— 关键补回这一行
 /* ---------- Storage helpers ---------- */
 const getStorage = async (key, fallback) => {
   const res = await storage.get(key);
@@ -57,12 +53,9 @@ let timeout = null;
 /* ---------- Init ---------- */
 (async function init() {
   try {
-    // ---- Pull from sync BEFORE any local defaults are written ----
-    await pullFromSync(); // if cloud has data, restoreToLocal() will overwrite local storage
-
-    // ---- Then load local configs (will not overwrite if sync populated) ----
     await loadConfigs();
     await loadIgnored();
+
     /* -- First run check -- */
     setTimeout(checkTabs, 100, 'start');
 
